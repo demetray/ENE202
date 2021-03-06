@@ -1,0 +1,218 @@
+%% ENE202 Lab 1/2/3 Data Analysis, and Heat Flow Calculations (MATLAB code)
+% demetray@princeton.edu
+% Draft due: Sun 7 Mar 2021
+
+%% (1) read in data
+dMLX = readtable('collectMLX.xlsx');
+dtherm = readtable('thermometer.xlsx');
+
+tMLX = table2array(dMLX(:, 1));     % time [HH:MM]
+gl = table2array(dMLX(:, 2));       % glass (indoor window surface) temp [deg C]
+amb = table2array(dMLX(:, 3));      % ambient indoor temp [deg C]
+
+ttherm = table2array(dtherm(:,1));  % time of thermometer recording [HH:MM]
+out = table2array(dtherm(:,2));     % outdoor temp [deg C]
+
+%% (2) plot raw data
+
+figure
+hold on
+
+plot(tMLX, amb, 'Color', [0.794, 0.184, 0.1], 'LineWidth',1)
+plot(tMLX, gl, 'Color', [0, 0.4470, 0.741], 'LineWidth',1)
+plot(ttherm, out, 'Color', [0.1, 0.4470, 0.0], 'LineWidth',1)
+
+legend('Ambient Indoor', 'Windowpane', 'Ambient Outdoor', 'FontSize', 15)
+ylabel('Temperature [ ^oC]', 'FontSize', 16)
+xlabel('Time [HH:MM]', 'FontSize', 16)
+title('Temperature from MLX and Thermometer Readings', 'FontSize', 17);
+
+hold off
+
+%% (3) convert date time array to hours so I can perform fitting functions on the arrays
+
+% for MLX
+h = hour(tMLX);
+m = minute(tMLX)./60;
+s = second(tMLX)./(60*60);
+
+tnumMLX = h + m + s;
+
+% for thermometer data
+h = hour(ttherm);
+m = minute(ttherm)./60;
+s = second(ttherm)./(60*60);
+
+tnumtherm = h + m + s;
+
+%% (4i) get linear fits to data
+
+fa = polyfit(tnumMLX, amb, 1);
+fg = polyfit(tnumMLX, gl, 1);
+fo = polyfit(tnumtherm, out, 1);
+
+%% (4ii) get exponential fits to data
+
+efa = fit( tnumMLX, amb, 'exp1');
+efg = fit( tnumMLX, gl, 'exp1');
+efo = fit( tnumtherm, out, 'exp1');
+
+% get values of exponential fit
+cva = coeffvalues(efa); valefa = cva(1).*exp(cva(2).*tnumMLX);
+cvg = coeffvalues(efg); valefg = cvg(1).*exp(cvg(2).*tnumMLX);
+cvo = coeffvalues(efo); valefo = cvo(1).*exp(cvo(2).*tnumMLX);
+
+%% (5) plot  linear and exponential fits
+
+figure
+hold on
+
+% PLOT LINEAR IN TOP SUBPLOT
+subplot(2,1,1)
+hold on
+
+plot(tMLX, polyval(fa, tnumMLX), 'Color', [0.794, 0.184, 0.1], 'LineWidth',1)
+plot(tMLX, polyval(fg, tnumMLX), 'Color', [0, 0.4470, 0.741], 'LineWidth',1)
+plot(ttherm, polyval(fo, tnumtherm), 'Color', [0.1, 0.4470, 0.0], 'LineWidth',1)
+
+plot(tMLX, amb,'.', 'Color', [0.794, 0.184, 0.1], 'LineWidth',1)
+plot(tMLX, gl,'.', 'Color', [0, 0.4470, 0.741], 'LineWidth',1)
+plot(ttherm, out,'.', 'Color', [0.1, 0.4470, 0.0], 'LineWidth',1)
+
+legend(['m = ',num2str(fa(1)), ', b = ',num2str(fa(2))], ['m = ',num2str(fg(1)), ', b = ',num2str(fg(2))], ['m = ',num2str(fo(1)), ', b = ',num2str(fo(2))], 'FontSize', 14)
+ylabel('Temperature [ ^oC]', 'FontSize', 15)
+title({'Linear ( y = mx + b )'}, 'FontSize', 15, 'FontWeight', 'normal');
+hold off
+
+% PLOT EXPONENTIAL IN BOTTOM SUBPLOT
+subplot(2,1,2)
+hold on
+
+plot(tMLX, valefa, 'Color', [0.794, 0.184, 0.1], 'LineWidth',1)
+plot(tMLX, valefg, 'Color', [0, 0.4470, 0.741], 'LineWidth',1)
+plot(tMLX, valefo, 'Color', [0.1, 0.4470, 0.0], 'LineWidth',1)
+
+plot(tMLX, amb,'.', 'Color', [0.794, 0.184, 0.1], 'LineWidth',1)
+plot(tMLX, gl,'.', 'Color', [0, 0.4470, 0.741], 'LineWidth',1)
+plot(ttherm, out,'.', 'Color', [0.1, 0.4470, 0.0], 'LineWidth',1)
+
+legend(['A = ',num2str(cva(1)), ',  k = ',num2str(cva(2))], ['A = ',num2str(cvg(1)), ',  k = ',num2str(cvg(2))], ['A = ',num2str(cvo(1)), ',  k = ',num2str(cvo(2))], 'FontSize', 14)
+ylabel('Temperature [ ^oC]', 'FontSize', 15)
+xlabel('Time [HH:MM]', 'FontSize', 15)
+title({'Exponential ( y = A*exp(k*x) )'}, 'FontSize', 15, 'FontWeight', 'normal');
+hold off
+
+sgtitle('Various fits to recorded temperature versus time data', 'FontSize', 17, 'FontWeight', 'bold');
+hold off
+
+hold off
+
+%% (6) initialize parameters necessary for heat flow calculations
+
+% heat transfer coefficients [W/m^2 C]
+% (https://www.engineersedge.com/heat_transfer/surface_heat_transfer_coefficients_13823.htm)
+hi = 8.29;
+ho = 34;
+
+% thermal conductivity of glass [W/m C]
+% (http://hyperphysics.phy-astr.gsu.edu/hbase/Tables/thrcn.html)
+k = 0.8;
+
+% window area [m^2] (measured)
+A = (35)*(2*26); % in^2
+A = A*0.00064516; % m^2
+% window thickness [m] (measured)
+x = 0.003;
+
+% CALCULATE THERMAL RESISTANCE [deg C/W]
+Ri = 1/(hi*A);
+Ro = 1/(ho*A);
+Rw = x/(k*A);
+
+R = Ri+Ro+Rw;
+
+%% (7) store temperature at various times (need to select the MLX data that was recorded when I tookd down thermometer measurements)
+
+To = [];
+Ti = [];
+Tiw = [];
+tiw = [];
+
+% iterate through all thermometer measurements
+for i = 1:length(tnumtherm)
+    ti = tnumtherm(i);
+    % iterate through all MLX measurements
+    for j = 1:length(tnumMLX)
+        tj = tnumMLX(j);
+        dif = abs(tj-ti);
+        
+        % if times of measurement are near enough such that MLX reading corresponds to
+        % thermometer reading, store MLX data to use for calculation
+        if dif < 0.0095
+            % store outdoor temp 
+            To = [To, out(i)];
+            % store indoor temp
+            Ti = [Ti, amb(j)];
+            % store measured indoor window surface temp
+            Tiw = [Tiw, gl(j)];
+            % store MLX time at this point
+            tiw = [tiw, tMLX(j)];
+            break
+        end
+        
+    end
+end
+
+%% (8) Calculations
+
+% calculate heat flow [W] between inside and outside at various times
+Q = (Ti - To)./R;
+
+% knowing heat flow, calculate temperature of indoor window surface
+Tiw_calc = (Ti - Q.*Ri);
+
+% plot the measured and calculated indoor window surface temps
+figure
+hold on
+plot(tiw, Tiw, 'Color', [0.794, 0.184, 0.1], 'LineWidth',1)
+plot(tiw, Tiw_calc, 'Color', [0, 0.4470, 0.741], 'LineWidth',1)
+
+xlabel('Time [HH:MM]', 'FontSize', 15)
+ylabel('Temperature [ ^oC]', 'FontSize', 15)
+title({'Temperature of indoor window surface at various times'}, 'FontSize', 16);
+legend('Measured', 'Calculated', 'FontSize', 14)
+
+hold off
+
+%% (9) Experiment with adjusting parameters in calculations
+
+% choose several values of R
+R1 = R*2;
+R2 = R*2.4;
+R3 = R*4.5;
+
+% calculate heat flow between inside and outside at various times
+Q1 = (Ti - To)./R1;
+Q2 = (Ti - To)./R2;
+Q3 = (Ti - To)./R3;
+
+% knowing heat flow, calculate temperature of indoor surface window
+Tiw_calc1 = (Ti - Q1.*Ri);
+Tiw_calc2 = (Ti - Q2.*Ri);
+Tiw_calc3 = (Ti - Q3.*Ri);
+
+% plot the calculated temp of indoor window surface with the various R
+figure
+hold on
+plot(tiw, Tiw, 'Color', [0.794, 0.184, 0.1], 'LineWidth',1)
+plot(tiw, Tiw_calc, 'Color', [0.1, 0.1, 0.1], 'LineWidth',1)
+plot(tiw, Tiw_calc1, 'Color', [0.5, 0.5, 0.5], 'LineWidth',1)
+plot(tiw, Tiw_calc2, 'Color', [0.7, 0.7, 0.7], 'LineWidth',1)
+plot(tiw, Tiw_calc3, 'Color', [0.8, 0.8, 0.8], 'LineWidth',1)
+
+xlabel('Time [HH:MM]', 'FontSize', 15)
+ylabel('Temperature [ ^oC]', 'FontSize', 15)
+title({'Temperature of indoor window surface calculated', 'with various values of R (total thermal resistance)'}, 'FontSize', 16);
+legend('Measured', 'Calculated: R = 0.131', 'Calculated: R = 0.2619', 'Calculated: R = 0.3143', 'Calculated: R = 0.5894', 'FontSize', 13)
+
+hold off
