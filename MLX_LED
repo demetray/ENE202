@@ -11,7 +11,7 @@
   I adapted this library example for the MLX90614 Temp Sensor to phase an LED based on the object temperature read by the sensor.
 
 
-  Designed specifically to work with the MLX90614 sensors in the
+  {Designed specifically to work with the MLX90614 sensors in the
   adafruit shop
   ----> https://www.adafruit.com/products/1748
   ----> https://www.adafruit.com/products/1749
@@ -23,7 +23,7 @@
   products from Adafruit!
 
   Written by Limor Fried/Ladyada for Adafruit Industries.  
-  BSD license, all text above must be included in any redistribution
+  BSD license, all text above must be included in any redistribution}
  ****************************************************/
 /* USER INPUT */
 int sample_rate = 2 * 1000; // how often you want device to publish where the number in front of a thousand is the seconds you want
