@@ -1,0 +1,188 @@
+%% ENE202 Lab 4: MATLAB code for examining calibration made on modern sensor data
+% demetray@princeton.edu
+% Report due: Sun 4 April 2021
+
+% load stored data from zginput
+load('for_cleaning.mat')
+
+%% (1) read in data
+data = readtable('collectPower.xlsx');
+dn = table2array(data(:, 1));               % time as datenum
+P = table2array(data(:, 2));                % power
+
+% convert datenum to time in days
+d = day(dn)-min(day(dn));
+h = hour(dn)./24;
+m = minute(dn)./(24*60);
+s = second(dn)./(24*60*60);
+t = d + h + m + s;
+
+%% (2) input calibration details
+
+% calibration points (values put in)
+In = [800, 1500, 25, 30, 5];
+% MD reading for first and second round of calibrations
+MD1 = [3750, 3883, 283, 261, 308];
+MD2 = [3731, 3894, 287, 272, 308];
+
+% amalgamate the two rounds of calibrations
+InT = [In, In];
+MDT = [MD1, MD2];
+
+% get linear best fit of all data
+pp = polyfit(MDT,InT, 1);
+fit = polyval(pp, MDT);
+
+figure
+hold on
+subplot(2,1,1)
+hold on
+plot(MDT, InT, '.', 'MarkerSize', 10)
+plot(MDT, fit)
+ylabel('Inputted power [W]', 'FontSize', 14)
+xlabel('Modern Device power reading [W]', 'FontSize', 14)
+legend('Calibration Points', 'a = 0.3235, b = -77.1519', 'FontSize', 12)
+title({'Calibration of Modern Sensor Reading by Least Squares Regression', 'for known power outputs ( y = a*x + b )'}, 'FontSize', 15) 
+hold off
+
+%% (3) original and calibrated readings
+
+orig = (P - pp(2))./pp(1);
+subplot(2,1,2)
+hold on
+
+plot(t, P)
+plot(t, orig)
+ylim([0, 4000])
+
+legend('Calibrated Signal', 'Original Signal', 'FontSize', 13)
+xlabel('Time after 23-Mar-2021 00:00:00    [days]', 'FontSize', 15)
+ylabel('Power [W]', 'FontSize', 15)
+hold off
+hold off
+%% (4) clean the data up by adjusting error from baseline reading
+
+% plot original data, and points selected from zginput
+figure
+hold on
+%sgtitle('Adjusting CT sensor signal by error in baseline reading')
+subplot(3,1,1)
+ax1 = gca;
+hold on
+plot(t, P, 'k')
+plot(x, y, '.r', 'MarkerSize', 10)
+legend('Original Signal', 'Event Boundaries', 'FontSize', 12)
+hold off
+
+% (4.2) adjust the data between events by the error in the baseline power sensed
+
+% initialize storage of the sections between events (ie. where power should 
+% be read as zero)
+tadj = [];
+Padj = [];
+% initialize arrays of cleaned up data
+Pclean = [];
+tclean = [];
+
+j = 1; i = 1;
+while j < 28
+    
+    % get indices of previous, current, and next event marker
+    indp = find(t(:,1)>x(j),1, 'first')-1;
+    indc = find(t(:,1)>x(j+1),1, 'first')-1;
+    indn = find(t(:,1)>x(j+2),1, 'first')-1;
+    
+    % extract sections between eventh from real data
+    thec = t(indp:indc);
+    Psec = P(indp:indc);
+
+    % amalgamate sections between eventh
+    tadj = [tadj; thec];
+    Padj = [Padj; Psec];
+    
+    % create cleaned up version of data array: adjust sections between
+    % eventh by predicted error (ie. the mean of the baseline reading)
+    Pclean = [Pclean; Psec - mean(Psec); P(indc+1:indn+1)];
+    tclean = [tclean; thec; t(indc+1:indn+1)];
+    
+    % store each separate section in a structure (in case I want to do
+    % something with them later)
+    fld = ['sec',num2str(i)];
+    tc.(fld) = thec;
+    Pc.(fld) = Psec;
+    i = i+1;
+    
+    % update j
+    j=j+2;
+    
+    % execute for last section
+    if j==29
+       indp = find(t(:,1)>x(j),1, 'first')-1;
+       thec = t(indp:end);
+       Psec = P(indp:end);
+        
+       tadj = [tadj; thec];
+       Padj = [Padj; Psec];
+       
+       tc.secL = thec;
+       Pc.secL = Psec;
+       
+       tclean = [tclean; thec];
+       Pclean = [Pclean; Psec - mean(Psec)];
+    end
+end
+
+
+% show sections between events on plot
+subplot(3,1,2)
+ax2 = gca;
+hold on
+plot(t, P, 'k')
+scatter(tadj, Padj, 0.25)
+%plot(x, y, '.r', 'MarkerSize', 10)
+ylabel('Power  [W]', 'FontSize', 15)
+legend('Original Signal', 'Sections between events', 'FontSize', 12)
+hold off
+
+% plot the power timeseries after sections between events have been adjusted
+subplot(3,1,3)
+ax3 = gca;
+hold on
+plot(t, P, 'k', 'LineWidth', 0.9)
+plot(tclean, Pclean, '--r', 'LineWidth', 0.5)
+legend('Original Signal', 'Adjusted Signal', 'FontSize', 12)
+hold off
+
+linkaxes([ax1 ax2 ax3], 'xy');
+ylim([-20 1260]);
+xlim([t(1), t(end)]);
+xlabel('Time after 23-Mar-2021 00:00:00    [days]', 'FontSize', 15)
+
+hold off
+
+%% (5) Clean up noise by smoothing (use sav-gol filter)
+
+% (5.1) Comparison of smooth and unsmoothed signal
+framelen = 21;
+order = 1;
+Psg = sgolayfilt(Pclean, order, framelen);
+figure
+hold on
+plot(tclean, Pclean)
+plot(tclean, Psg)
+
+xlabel('Time after 23-Mar-2021 00:00:00    [days]', 'FontSize', 15)
+ylabel('Power [W]', 'FontSize', 15)
+title({'Adjusted Signal with and without smoothing', '(Savitzky-Golay Filter)'}, 'FontSize', 15)
+legend('Original', 'Smoothed', 'FontSize', 14)
+hold off
+
+% (5.2) Smoothed signal alone
+figure
+hold on
+plot(tclean, Psg)
+
+xlabel('Time after 23-Mar-2021 00:00:00    [days]', 'FontSize', 15)
+ylabel('Power [W]', 'FontSize', 15)
+title({'Calibrated, Adjusted and Smoothed signal', 'for power use in my room over several days '}, 'FontSize', 15)
+hold off
