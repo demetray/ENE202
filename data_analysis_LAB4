@@ -1,0 +1,172 @@
+%% ENE202 Lab 4: analyze Power data, consider emissions
+% demetray@princeton.edu
+% Report due: Sun 4 April 2021
+
+load('for_analysis.mat');
+
+%% (1) get energy use from power
+
+% switch time coordinates to unith hours to get Wh
+th = tclean.*(24);
+
+% calculate cumulative energy use
+Ecum = zeros(length(th),1);
+for i=2:length(th)
+    Ecum(i) = trapz(th(1:i), Psg(1:i));
+end
+
+figure
+hold on
+subplot(1,2,1)
+hold on
+plot(tclean, Ecum, 'LineWidth',1.2)
+
+% calculate daily energy use
+tbound = th(1)+24.*(0:7);
+Ed = zeros(length(tbound)-1,1);
+for j=1:length(tbound)-1
+    
+    indp = find(th(:,1)>tbound(j),1, 'first')-1;
+    indc = find(th(:,1)>tbound(j+1),1, 'first')-1;
+    
+    % get energy use over one day
+    Ed(j) = trapz(th(indp:indc), Psg(indp:indc));
+    % plot average energy use over that day
+    plot([th(indp), th(indc)]./24, [Ed(j), Ed(j)], '-ok', 'LineWidth',1)
+    
+
+end
+
+xlabel('Time after 23-Mar-2021 00:00:00    [days]', 'FontSize', 15)
+ylabel('Energy Use  [Wh]', 'FontSize', 15)
+legend('Cumulative Energy Use', 'Energy use each day', 'FontSize',13)
+title('Energy Use in my room over several days', 'FontSize', 16)
+grid on
+hold off
+
+%% (2) Get carbon footprint from energy use
+
+% our gas company: PSE&G. Emissions of pollutants by energy consumption
+co2 = 745.34;           % lb CO2 /MWh
+nox = 0.36;             % lb NOx/MWh
+so2 = 0.39;             % lb SO2/MWh
+% convert MWh to Wh
+cc = 1/10E6;            % MWh in a Wh
+co2 = co2*cc; nox = nox*cc; so2 = so2*cc;   % lb pollutant / Wh
+
+
+subplot(1,2,2)
+hold on
+plot(tclean, Ecum.*co2, 'LineWidth',1.2)
+% calculate daily carbon footprint
+tbound = th(1)+24.*(0:7);
+cout = zeros(length(tbound)-1,1);
+for j=1:length(tbound)-1
+    
+    indp = find(th(:,1)>tbound(j),1, 'first')-1;
+    indc = find(th(:,1)>tbound(j+1),1, 'first')-1;
+    
+    % get energy use over one day
+    cout(j) = trapz(th(indp:indc), Psg(indp:indc)).*co2;
+    % plot average energy use over that day
+    plot([th(indp), th(indc)]./24, [cout(j), cout(j)], '-ok', 'LineWidth',1)
+    
+
+end
+
+title('CO_2 Emissions from energy use in my room', 'FontSize',16)
+xlabel('Time after 23-Mar-2021 00:00:00    [days]', 'FontSize', 15)
+legend('Cumulative CO_2 Emissions', 'CO_2 Emissions each day', 'FontSize',13)
+ylabel('Mass of CO_2 [lbs]', 'FontSize',15)
+grid on
+hold off
+hold off
+
+%% (3) Get nox and sox footprint from energy use
+
+figure 
+hold on
+
+subplot(1,2,1)
+hold on
+plot(tclean, Ecum.*so2, 'LineWidth',1.2)
+% calculate daily so2 footprint
+tbound = th(1)+24.*(0:7);
+cout = zeros(length(tbound)-1,1);
+for j=1:length(tbound)-1
+    
+    indp = find(th(:,1)>tbound(j),1, 'first')-1;
+    indc = find(th(:,1)>tbound(j+1),1, 'first')-1;
+    
+    % get energy use over one day
+    sout(j) = trapz(th(indp:indc), Psg(indp:indc)).*so2;
+    % plot average energy use over that day
+    plot([th(indp), th(indc)]./24, [sout(j), sout(j)], '-ok', 'LineWidth',1)
+    
+
+end
+
+title('SO_2 Emissions from energy use in my room', 'FontSize',16)
+xlabel('Time after 23-Mar-2021 00:00:00    [days]', 'FontSize', 15)
+legend('Cumulative SO_2 Emissions', 'SO_2 Emissions each day', 'FontSize',13)
+ylabel('Mass of SO_2 [lbs]', 'FontSize',15)
+grid on
+hold off
+
+subplot(1,2,2)
+hold on
+plot(tclean, Ecum.*nox, 'LineWidth',1.2)
+% calculate daily so2 footprint
+tbound = th(1)+24.*(0:7);
+cout = zeros(length(tbound)-1,1);
+for j=1:length(tbound)-1
+    
+    indp = find(th(:,1)>tbound(j),1, 'first')-1;
+    indc = find(th(:,1)>tbound(j+1),1, 'first')-1;
+    
+    % get energy use over one day
+    nout(j) = trapz(th(indp:indc), Psg(indp:indc)).*nox;
+    % plot average energy use over that day
+    plot([th(indp), th(indc)]./24, [nout(j), nout(j)], '-ok', 'LineWidth',1)
+    
+
+end
+
+title('NO_x Emissions from energy use in my room', 'FontSize',16)
+xlabel('Time after 23-Mar-2021 00:00:00    [days]', 'FontSize', 15)
+legend('Cumulative NO_x Emissions', 'NO_x Emissions each day', 'FontSize',13)
+ylabel('Mass of NO_x [lbs]', 'FontSize',15)
+grid on
+hold off
+hold off
+
+%% (4) compare impact of NOx, SO2, and CO2 emissions.
+
+% US SO2 and NOX emissions in 2016
+% (https://ourworldindata.org/grapher/air-pollutant-emissions?country=~USA_)
+% (https://ourworldindata.org/grapher/annual-co2-emissions-per-country?tab=chart&country=~USA)
+nox_us = 10.49E6;             % tonnes
+so2_us = 2.71E6;              % tonnes
+co2_us = 5.29E9;              % tonnes
+
+% tonnes to pounds
+cct = 2204.63;            % pounds per million tonnes
+nox_us = nox_us*cct; so2_us = so2_us*cct; co2_us = co2_us*cct;
+
+% plot normalized time series of emissions of these three pollutants
+figure
+hold on
+plot(tclean, Ecum.*co2./co2_us, 'LineWidth',1)
+plot(tclean, Ecum.*so2./so2_us, 'LineWidth',1)
+plot(tclean, Ecum.*nox./nox_us, 'LineWidth',1)
+
+legend('Cumulative CO_2', 'Cumulative SO_2', 'Cumulative NO_x', 'FontSize', 14)
+title({'My cumulative emissions beginning 23 Mar', 'as a fraction of annual emissions by the US'}, 'FontSize', 16)
+xlabel('Time after 23-Mar-2021 00:00:00    [days]', 'FontSize', 15)
+ylabel('[ lbs emitted by me / lbs emitted annually from US ]', 'FontSize',15)
+
+%% (5) extrapolate co2 emissions to a full year
+
+% proportion of one yr
+prop = 365/tclean(end);
+co2_yr = Ecum(end)*co2*prop;
