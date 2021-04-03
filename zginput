@@ -1,0 +1,74 @@
+
+function [pickx, picky] = zginput(x, y)
+% 
+% ZGINPUT: building off of MATLAB's ginput, this function allows you to zoom before selecting points while 
+% using ginput. 
+%
+% INPUT
+% x: independent variable data (vector)
+% y: dependent variable data (vector)
+%
+% OUTPUT
+% pickx: independent variable coordinates for selected points (vector)
+% picky: dependent variable coordinates for selected points (vector)
+%
+% To succesfully zoom, select, and store points, follow these steps:
+% 1. call zginput
+% 2. zoom by clicking and dragging on your figure
+% 3. press return key to activate ginput
+% 4. execute ginput by putting cursor at desired location, and pressing any
+% key (other than e or return) to store the point
+% 5. repeat 2-4 for all desired points
+% 6. press return, e to escape zginput
+%
+% Note: it is essential to select your point (step 4) by pressing a key, 
+% rather than clicking with your cursor. If you use your cursor, you will 
+% not be able to zoom again before selecting your next point. 
+%
+% written by demetray@princeton.edu
+% April 2021
+
+
+
+% plot data on a figure, to be able to pick points from the figure
+plot(x, y);
+
+pickx = []; picky = [];
+
+
+% keep selecting points from figure until e is pressed on keyboard
+key = 0;
+while key==0
+    
+    % enable zoom (to zoom in before selecting point with ginput)
+    zoom on
+    % after done zooming, press return key to move forward with ginput
+    waitfor(gcf, 'CurrentCharacter', char(13))
+
+    % select and store point using ginput (to store, press key, NOT mouse click)
+    [xx, yy] = ginput(1);
+    pickx = [pickx, xx]; 
+    picky = [picky, yy];
+    
+    % return figure to original zoom
+    zoom out
+    
+    % press return, e to stop selecting points (ie. to escape function; keyboard 
+    % labels are just the characters ASCII code, so, char(101) == 'e')
+    key = get(gcf, 'CurrentKey');
+    if key == char(101)
+        key = 1;
+    else
+        key = 0;
+    end
+    
+end
+
+% exclude last point (picked up when e is pressed to escape)
+N = length(pickx)-1;
+pickx = pickx(1:N);
+picky = picky(1:N);
+
+close all
+
+end
