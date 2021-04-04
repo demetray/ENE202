@@ -1,0 +1,84 @@
+// Reading and parsing Modern Devices current sensor output. Calibrate using input arguments: store each input argument,
+// and for each new argument, calibrate a least squares linear regression to the calibration points (inputted point vs 
+// MD device reading). 
+//
+// Developed from original ENE202 script from Lab 4, 5 (current-sensing.ino).
+// demetray@princeton.edu
+// April 2021
+
+// This #include statement was automatically added by the Particle IDE.
+#include <EmonLib.h>
+
+// This #include statement was automatically added by the Particle IDE.
+#include <EmonLib.h>
+
+
+double Modern;
+double ModernCalib = 1;
+double ModernIntercept = 0;
+double ModernReading;
+
+float ModernCal(String command);   // declare ModernCal function
+int modernPin = A2;                 // set pin where analog to digitial output from MD is fed
+
+// initialize arrays to store calibration points globally (assumes that there will be no more than 100 calibration points)
+float MDcalib[100];
+float MDreading[100];
+int calibCount=1;
+
+
+void setup() {
+
+Particle.variable("Modern_power",Modern);
+Particle.variable("Modern_cal",ModernCalib);
+Particle.variable("Modern_int",ModernIntercept);
+
+
+Particle.function("ModernCal", ModernCal);
+
+// set first point for calibration as (0,0)
+MDcalib[0]=0.0;
+MDreading[0]=0.0;
+
+}
+
+void loop() {
+
+ModernReading = analogRead(modernPin);
+Modern = ModernReading * ModernCalib + ModernIntercept;
+
+
+Particle.publish("output", "MD_power: " + String(Modern));
+
+delay(3000);
+}
+
+
+float ModernCal(String command)
+{
+    
+  // store new calibration 
+  MDcalib[calibCount] = command.toFloat();
+  MDreading[calibCount] = ModernReading;
+  
+  // increment calibration count
+  calibCount+=1;
+  
+  // initialize terms (locally) for linear regression
+  float rSum=0, r2Sum=0, cSum=0, crSum=0;
+  
+  // calculate the terms for linear regression with calibration point entered
+  for (int i = 0; i<=calibCount; i++)
+  {
+      rSum+=MDreading[i];
+      r2Sum+=MDreading[i]*MDreading[i];
+      cSum+=MDcalib[i];
+      crSum+=MDcalib[i]*MDreading[i];
+  }
+  
+  // update slope for new regression
+  ModernIntercept = (cSum*r2Sum - rSum*crSum) / ((calibCount+1)*r2Sum-rSum*rSum);
+  ModernCalib = ((calibCount+1)*crSum - rSum*cSum) / ((calibCount+1)*r2Sum-rSum*rSum);
+  
+  return ModernReading;
+}
